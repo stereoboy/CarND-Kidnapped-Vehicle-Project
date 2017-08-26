@@ -24,10 +24,10 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 	//   x, y, theta and their uncertainties from GPS) and all weights to 1. 
 	// Add random Gaussian noise to each particle.
 	// NOTE: Consult particle_filter.h for more information about this method (and others in this file).
-	double std_x = std[0];
-	double std_y = std[1];
-	double std_theta = std[2];
-	num_particles = 2500; // Controllable Factor
+	const double std_x = std[0];
+	const double std_y = std[1];
+	const double std_theta = std[2];
+	num_particles = 100; // Controllable Factor
 
 	std::default_random_engine gen;
 	normal_distribution<double> dist_x(x, std_x);
@@ -43,7 +43,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
 		particle.id = i;
 		particle.x = dist_x(gen);
 		particle.y = dist_y(gen);
-		particle.theta = fmod(dist_theta(gen), (2*M_PI));
+		particle.theta = fmod(dist_theta(gen) + (2*M_PI), (2*M_PI));
 		particle.weight = 1;
 		particles.push_back(particle);
 		//cout << particle.x << "," << particle.y << endl;
@@ -59,10 +59,10 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 	// NOTE: When adding noise you may find std::normal_distribution and std::default_random_engine useful.
 	//  http://en.cppreference.com/w/cpp/numeric/random/normal_distribution
 	//  http://www.cplusplus.com/reference/random/default_random_engine/
-	double std_x = std_pos[0];
-	double std_y = std_pos[1];
-	double std_theta = std_pos[2];
-  
+	const double std_x = std_pos[0];
+	const double std_y = std_pos[1];
+	const double std_theta = std_pos[2];
+
 	std::default_random_engine gen;
 	normal_distribution<double> dist_x(0, std_x);
 	normal_distribution<double> dist_y(0, std_y);
@@ -75,7 +75,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
   {
     // x = x + v(dt)*cos(theta)
     // y = y + v(dt)*sin(theta)
-    // theta = theta 
+    // theta = theta
     for (int i = 0; i < particles.size(); i++)
     {
       x = particles[i].x;
@@ -88,7 +88,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
       particles[i].y += dist_y(gen);
       particles[i].theta = theta;
       particles[i].theta += dist_theta(gen);
-      particles[i].theta = fmod(particles[i].theta, (2*M_PI));
+      particles[i].theta = fmod(particles[i].theta + (2*M_PI), (2*M_PI));
     }
   }
   else
@@ -110,7 +110,7 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 
       particles[i].theta = theta + yaw_rate*delta_t;
       particles[i].theta += dist_theta(gen);
-      particles[i].theta = fmod(particles[i].theta, (2*M_PI));
+      particles[i].theta = fmod(particles[i].theta + (2*M_PI), (2*M_PI));
     }
   }
 
@@ -152,22 +152,22 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	//   3.33
 	//   http://planning.cs.uiuc.edu/node99.html
 
-  double std_x = std_landmark[0];
-  double std_y = std_landmark[1];
+  const double std_x = std_landmark[0];
+  const double std_y = std_landmark[1];
 
   for (int i = 0; i < particles.size(); i++)
   {
-    double x = particles[i].x;
-    double y = particles[i].y;
-    double theta = particles[i].theta;
+    const double x = particles[i].x;
+    const double y = particles[i].y;
+    const double theta = particles[i].theta;
 
     vector<LandmarkObs> predicted;
     for (int j = 0; j < map_landmarks.landmark_list.size(); j++)
     {
-      int m_id = map_landmarks.landmark_list[j].id_i;
-      double m_x  = map_landmarks.landmark_list[j].x_f;
-      double m_y  = map_landmarks.landmark_list[j].y_f;
-      double len = dist(x, y, m_x, m_y);
+      const int m_id = map_landmarks.landmark_list[j].id_i;
+      const double m_x  = map_landmarks.landmark_list[j].x_f;
+      const double m_y  = map_landmarks.landmark_list[j].y_f;
+      const double len = dist(x, y, m_x, m_y);
 
       if ( len <= sensor_range)
       {
@@ -199,24 +199,25 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
       for (int j = 0; j < observations_map.size(); j++)
       {
         int id_o = observations_map[j].id;
-        double x_o = observations_map[j].x;
-        double y_o = observations_map[j].y;
-        double x_p = predicted[id_o].x;
-        double y_p = predicted[id_o].y;
+        const double x_o = observations_map[j].x;
+        const double y_o = observations_map[j].y;
+        const double x_p = predicted[id_o].x;
+        const double y_p = predicted[id_o].y;
         double temp = (x_o - x_p)*(x_o - x_p)/(std_x*std_x) + (y_o - y_p)*(y_o - y_p)/(std_y*std_y);
         w += temp;
       }
 
       double weight  = exp(-1.0/2.0*w);
       weights[i] = weight;
-
+      particles[i].weight = weight;
+      //cout << weights[i] <<endl;
     }
   }
 
   double total_w = 0;
   for (int i = 0; i < weights.size(); i++)
   {
-    total_w = weights[i];
+    total_w += weights[i];
   }
 
   for (int i = 0; i < weights.size(); i++)
